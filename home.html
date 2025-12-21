@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>People Register</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body { margin:0; font-family:Arial; background:#eceff1; transition:0.3s; }
+header { background:black; color:white; padding:18px; font-size:23px; letter-spacing:1px; text-align:center; position:relative; }
+#darkModeBtn { position:absolute; right:15px; top:15px; padding:7px 12px; background:white; color:black; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold; }
+#searchBar { width:80%; padding:13px; margin:15px auto; display:block; border-radius:10px; border:1px solid #aaa; font-size:17px; }
+#adminFloatButton { position:fixed; right:20px; bottom:20px; background:black; color:white; padding:15px 20px; border-radius:50px; font-size:16px; cursor:pointer; z-index:999; }
+#adminLoginBox { display:none; position:fixed; right:20px; bottom:75px; background:white; padding:15px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.3); width:230px; z-index:999; }
+#adminLoginInput { width:90%; padding:10px; border-radius:6px; border:1px solid #aaa; margin-bottom:8px; font-size:16px; }
+#adminLoginButton { width:100%; padding:10px; border-radius:6px; border:none; background:black; color:white; font-size:16px; cursor:pointer; }
+#registerForm { display:none; background:white; width:90%; margin:10px auto; padding:18px; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
+#registerForm input { width:90%; padding:11px; border:1px solid #aaa; border-radius:8px; margin-top:9px; }
+#registerForm button { width:100%; padding:12px; color:white; background:green; border-radius:8px; border:none; font-size:18px; margin-top:13px; cursor:pointer; }
+#cardsContainer { display:flex; flex-wrap:wrap; justify-content:center; padding-bottom:120px; }
+
+.personCard { width:80%; background:white; padding:18px; margin:10px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.2); font-size:18px; cursor:pointer; display:flex; align-items:center; gap:10px; transition:0.5s; }
+
+.personLogo { width:55px; height:55px; border-radius:50%; background:black; color:white; display:flex; justify-content:center; align-items:center; font-size:20px; font-weight:bold; }
+
+.idBadge { font-size:13px; opacity:0.7; }
+.ageBadge { font-size:15px; opacity:0.7; }
+.dateBadge { font-size:13px; opacity:0.7; margin-top:5px; }
+
+.alphaHeader {
+    width:100%;
+    text-align:left;
+    font-size:28px;
+    padding-left:15px;
+    font-weight:bold;
+    color:#000;
+}
+
+#detailPopup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity:0; }
+    to   { opacity:1; }
+}
+#detailBox {
+    width: 80%;
+    max-width: 480px;
+    background: white;
+    padding: 22px;
+    border-radius: 22px;
+    max-height: 80%;
+    overflow-y: auto;
+    position: relative;
+    text-align: center;
+    box-shadow: 0 15px 45px rgba(0,0,0,0.4);
+    transform: scale(0.7);
+    opacity: 0;
+    animation: popCard 0.35s ease forwards;
+}
+
+#actionMsg { position:absolute; top:10px; right:10px; background:green; color:white; padding:8px 12px; border-radius:6px; display:none; z-index:999; font-weight:bold; font-size:16px; text-align:center; min-width:150px; }
+
+.flash { animation: flashCard 1s ease; }
+@keyframes flashCard { 
+0% { background-color:#ffff99; }
+50% { background-color:#ffffff; }
+100% { background-color:#ffffff; }
+}
+
+.title1 { font-size:21px; font-weight:bold; }
+
+.recordItem { background:#edf1f5; padding:10px; border-radius:8px; margin-top:6px; font-size:15px; display:flex; justify-content:space-between; align-items:center; }
+
+.totalDisplay { background:blue; color:white; padding:12px; border-radius:8px; margin-bottom:15px; font-size:20px; text-align:center; font-weight:bold; }
+
+.adminBtnRed, .adminBtnBlue, .adminBtnBlack, .adminBtnGreen { width:100%; padding:12px; border-radius:6px; border:none; margin-top:10px; color:white; cursor:pointer; }
+.adminBtnRed { background:red; }
+.adminBtnBlue { background:blue; }
+.adminBtnBlack { background:black; }
+.adminBtnGreen { background:green; }
+
+.dark body { background:#121212; }
+.dark .personCard { background:#212121; color:white; }
+.dark #registerForm { background:#212121; color:white; }
+.dark #detailBox { background:#212121; color:white; }
+.dark header { background:#222; }
+.dark #adminFloatButton { background:#333; }
+.dark #searchBar { background:#333; color:white; }
+.dark #adminLoginBox { background:#333; color:white; }
+.dark #darkModeBtn { background:black; color:white; }
+@keyframes popCard {
+    0% {
+        transform: scale(0.6) translateY(20px);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+#detailBox::-webkit-scrollbar {
+    width: 6px;
+}
+#detailBox::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 20px;
+}
+@media(max-width:430px){
+    #detailBox{
+        width:95%;
+        max-width:320px;
+        padding:18px;
+        border-radius:18px;
+    }
+}
+</style>
+</head>
+<body>
+
+<header>
+    PEOPLE'S TITHE REGISTER
+    <div id="darkModeBtn" onclick="toggleDark()">Dark</div>
+</header>
+
+
+<!-- BUTTON ROW -->
+<div class="topButtons">
+    <button id="calendarBtn" class="btnBlue">Calendar</button>
+    <button id="calcBtn" class="btnGreen">Calculator</button>
+    <button id="totalBtn" class="btnOrange">Total Collected</button>
+    
+</div>
+
+<!-- ================= CALENDAR PANEL ================= -->
+<div id="calendarPanel" class="panel">
+    <h2 id="liveDate"></h2>
+    <h3 id="liveTime"></h3>
+    <label><input type="checkbox" id="timeFormatToggle"> 24-Hour Format</label>
+    <div class="calControls">
+        <button id="prevMonth" class="navBtn">◀</button>
+        <select id="yearSelect"></select>
+        <select id="monthSelect"></select>
+        <button id="nextMonth" class="navBtn">▶</button>
+    </div>
+    <table class="calendarTable">
+        <thead>
+            <tr>
+                <th>Su</th><th>Mo</th><th>Tu</th><th>We</th>
+                <th>Th</th><th>Fr</th><th>Sa</th>
+            </tr>
+        </thead>
+        <tbody id="calendarBody"></tbody>
+    </table>
+    <h4 id="selectedDayLabel"></h4>
+</div>
+
+<!-- ================= CALCULATOR PANEL ================= -->
+<div id="calculatorPanel" class="panel">
+    <input type="text" id="calcDisplay" class="display" readonly>
+    <div class="calcGrid">
+        <button class="calcBtn">7</button>
+        <button class="calcBtn">8</button>
+        <button class="calcBtn">9</button>
+        <button class="calcBtn operator">/</button>
+
+        <button class="calcBtn">4</button>
+        <button class="calcBtn">5</button>
+        <button class="calcBtn">6</button>
+        <button class="calcBtn operator">*</button>
+
+        <button class="calcBtn">1</button>
+        <button class="calcBtn">2</button>
+        <button class="calcBtn">3</button>
+        <button class="calcBtn operator">-</button>
+
+        <button class="calcBtn">0</button>
+        <button class="calcBtn">.</button>
+        <button id="calcEquals" class="equalsBtn">=</button>
+        <button class="calcBtn operator">+</button>
+
+        <button id="calcClear" class="clearBtn">Backspace</button>
+    </div>
+</div>
+
+<!-- ================= TOTAL COLLECTED PANEL ================= -->
+<div id="totalPanel" class="panel">
+    <h2>Total Collected</h2>
+    <p id="dailyTotal">Today: UGX0</p>
+    <p id="weeklyTotal">This Week: UGX0</p>
+     <p id="weeklyTotal">This month: UGX0</p>
+    <p id="yearlyTotal">This Year: UGX0</p>
+</div>
+
+<!-- ===================== CSS ===================== -->
+<style>
+body{font-family:Arial;}
+.topButtons{
+    width:100%;
+    display:flex;
+    justify-content:center;
+    gap:12px;
+    margin:15px 0;
+}
+.btnBlue, .btnGreen, .btnOrange{
+    padding:12px 25px;
+    border:none;
+    border-radius:8px;
+    font-size:16px;
+    font-weight:bold;
+    cursor:pointer;
+    color:white;
+}
+.btnBlue{background:#004d99;}
+.btnGreen{background:#00994d;}
+.btnOrange{background:#ff9800;}
+
+.panel{
+    display:none;
+    position:fixed;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    background:#fff;
+    padding:18px;
+    border-radius:12px;
+    box-shadow:0 6px 20px rgba(0,0,0,0.3);
+    width:330px;
+    max-width:95%;
+    text-align:center;
+    z-index:9999;
+}
+
+.calControls{display:flex;justify-content:center;gap:6px;margin-top:10px;}
+.navBtn{background:black;color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;}
+
+.calendarTable{width:100%;margin-top:10px;border-collapse:collapse;}
+.calendarTable td{padding:6px 0;border-radius:6px;transition:.2s;user-select:none;}
+.calendarTable td:hover{background:#ddd;cursor:pointer;}
+.todayHighlight{background:#ffc800 !important;font-weight:bold;}
+.selectedDay{background:#004d99 !important;color:white !important;}
+
+.display{width:90%;padding:12px;font-size:20px;border-radius:8px;border:1px solid #ccc;margin-bottom:10px;text-align:right;}
+.calcGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.calcBtn{padding:15px 0;border:none;border-radius:8px;background:white;font-size:18px;cursor:pointer;}
+.calcBtn:hover{background:#ddd;}
+.operator{background:#f0f0f0;}
+.operator:hover{background:#ccc;}
+.equalsBtn{background:#43a047;color:white;border:none;border-radius:8px;}
+.clearBtn{background:#e53935;color:white;border:none;padding:12px 0;grid-column:span 4;border-radius:8px;}
+</style>
+
+<!-- ===================== JS ===================== -->
+<script>
+// ===================== PANEL OPEN/CLOSE =====================
+const calendarPanel=document.getElementById("calendarPanel");
+const calculatorPanel=document.getElementById("calculatorPanel");
+const totalPanel=document.getElementById("totalPanel");
+
+document.getElementById("calendarBtn").onclick=()=> calendarPanel.style.display="block";
+document.getElementById("calcBtn").onclick=()=> calculatorPanel.style.display="block";
+document.getElementById("totalBtn").onclick=()=> {
+    totalPanel.style.display="block";
+    fetchTotalCollected();
+};
+
+window.addEventListener("click",(e)=>{
+    if(!calendarPanel.contains(e.target) && e.target.id!=="calendarBtn"){calendarPanel.style.display="none";}
+    if(!calculatorPanel.contains(e.target) && e.target.id!=="calcBtn"){calculatorPanel.style.display="none";}
+    if(!totalPanel.contains(e.target) && e.target.id!=="totalBtn"){totalPanel.style.display="none";}
+});
+
+// ===================== CLOCK =====================
+const liveDate=document.getElementById("liveDate");
+const liveTime=document.getElementById("liveTime");
+const toggle24=document.getElementById("timeFormatToggle");
+
+function updateClock(){
+    let now=new Date();
+    liveDate.textContent=now.toDateString();
+    let h=now.getHours();
+    let m=String(now.getMinutes()).padStart(2,"0");
+    let s=String(now.getSeconds()).padStart(2,"0");
+    if(toggle24.checked){liveTime.textContent=`${String(h).padStart(2,"0")}:${m}:${s}`;}
+    else{let ampm=h>=12?"PM":"AM"; h=h%12||12; liveTime.textContent=`${h}:${m}:${s} ${ampm}`;}
+}
+setInterval(updateClock,1000);
+updateClock();
+
+// ===================== CALENDAR =====================
+const yearSelect=document.getElementById("yearSelect");
+const monthSelect=document.getElementById("monthSelect");
+const calendarBody=document.getElementById("calendarBody");
+const selectedDayLabel=document.getElementById("selectedDayLabel");
+let today=new Date();
+let currentYear=today.getFullYear();
+let currentMonth=today.getMonth();
+let selectedTd=null;
+
+for(let y=1900; y<=currentYear; y++){
+    let opt=document.createElement("option"); opt.value=y; opt.textContent=y; yearSelect.append(opt);
+}
+const months=["January","February","March","April","May","June","July","August","September","October","November","December"];
+months.forEach((m,i)=>{let opt=document.createElement("option"); opt.value=i; opt.textContent=m; monthSelect.append(opt);});
+yearSelect.value=currentYear; monthSelect.value=currentMonth;
+
+function buildCalendar(){
+    calendarBody.innerHTML="";
+    let y=+yearSelect.value; let m=+monthSelect.value;
+    let firstDay=new Date(y,m,1).getDay();
+    let lastDay=new Date(y,m+1,0).getDate();
+    let row=document.createElement("tr");
+    for(let i=0;i<firstDay;i++){row.append(document.createElement("td"));}
+    for(let d=1; d<=lastDay; d++){
+        let td=document.createElement("td"); td.textContent=d;
+        if(d===today.getDate() && m===today.getMonth() && y===today.getFullYear()){td.classList.add("todayHighlight");}
+        td.onclick=()=>{
+            if(selectedTd){selectedTd.classList.remove("selectedDay");}
+            selectedTd=td; td.classList.add("selectedDay");
+            selectedDayLabel.textContent=`Selected: ${months[m]} ${d}, ${y}`;
+        }
+        row.append(td);
+        if((d+firstDay)%7===0){calendarBody.append(row); row=document.createElement("tr");}
+    }
+    calendarBody.append(row);
+}
+buildCalendar();
+document.getElementById("prevMonth").onclick=()=>{
+    let m=+monthSelect.value-1; if(m<0){ monthSelect.value=11; yearSelect.value--; } else{ monthSelect.value=m;} buildCalendar();
+};
+document.getElementById("nextMonth").onclick=()=>{
+    let m=+monthSelect.value+1; if(m>11){ monthSelect.value=0; yearSelect.value++; } else{ monthSelect.value=m;} buildCalendar();
+};
+yearSelect.onchange=buildCalendar; monthSelect.onchange=buildCalendar;
+
+// ===================== CALCULATOR =====================
+const calcDisplay=document.getElementById("calcDisplay");
+let calcValue="";
+document.querySelectorAll(".calcBtn").forEach(b=>{
+    b.onclick=()=>{
+        if(b.id==="calcClear" || b.id==="calcEquals") return;
+        calcValue+=b.textContent; calcDisplay.value=calcValue;
+    }
+});
+document.getElementById("calcClear").onclick=()=>{
+    calcValue=calcValue.slice(0,-1); calcDisplay.value=calcValue;
+};
+document.getElementById("calcEquals").onclick=()=>{
+    try{calcValue=eval(calcValue).toString(); calcDisplay.value=calcValue;}
+    catch{calcDisplay.value="Error"; calcValue="";}
+};
+// ===================== TOTAL COLLECTED REAL-TIME =====================
+function formatCurrency(amount) {
+    // Format as Ugandan Shillings with commas and no decimals
+    return "UGX " + Math.round(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function setupTotalCollectedRealtime() {
+    const dailyEl = document.getElementById("dailyTotal");
+    const weeklyEl = document.getElementById("weeklyTotal");
+    const monthlyElId = "monthlyTotal"; // NEW
+    const yearlyEl = document.getElementById("yearlyTotal");
+    const allTimeElId = "allTimeTotal";
+
+    // Create MONTHLY element if it doesn't exist
+    let monthlyEl = document.getElementById(monthlyElId);
+    if (!monthlyEl) {
+        monthlyEl = document.createElement("p");
+        monthlyEl.id = monthlyElId;
+        totalPanel.appendChild(monthlyEl);
+    }
+
+    // Create ALL-TIME element if it doesn't exist
+    let allTimeEl = document.getElementById(allTimeElId);
+    if (!allTimeEl) {
+        allTimeEl = document.createElement("p");
+        allTimeEl.id = allTimeElId;
+        totalPanel.appendChild(allTimeEl);
+    }
+
+    // Listen for all changes in 'people' (real-time)
+    db.ref("people").on("value", snapshot => {
+        const now = new Date();
+        let daily = 0, weekly = 0, monthly = 0, yearly = 0, allTime = 0;
+
+        snapshot.forEach(personSnapshot => {
+            const personData = personSnapshot.val();
+            if (!personData.titheHistory) return;
+
+            Object.values(personData.titheHistory).forEach(tithe => {
+                const amount = parseFloat(tithe.amount || 0);
+                const date = tithe.date ? new Date(tithe.date) : now;
+
+                // Daily total
+                if (date.toDateString() === now.toDateString()) daily += amount;
+
+                // Weekly total (Sunday-Saturday)
+                const firstDayOfWeek = new Date(now);
+                firstDayOfWeek.setDate(now.getDate() - now.getDay());
+                if (date >= firstDayOfWeek && date <= now) weekly += amount;
+
+                // Monthly total
+                if (
+                    date.getMonth() === now.getMonth() &&
+                    date.getFullYear() === now.getFullYear()
+                ) monthly += amount;
+
+                // Yearly total
+                if (date.getFullYear() === now.getFullYear()) yearly += amount;
+
+                // All-time total
+                allTime += amount;
+            });
+        });
+
+        // Update HTML with formatted currency
+        dailyEl.textContent = `Today: ${formatCurrency(daily)}`;
+        weeklyEl.textContent = `This Week: ${formatCurrency(weekly)}`;
+        monthlyEl.textContent = `This Month: ${formatCurrency(monthly)}`;
+        yearlyEl.textContent = `This Year: ${formatCurrency(yearly)}`;
+        allTimeEl.textContent = `All-Time Total: ${formatCurrency(allTime)}`;
+    });
+}
+
+// Initialize real-time totals when the panel opens
+document.getElementById("totalBtn").onclick = () => {
+    totalPanel.style.display = "block";
+    setupTotalCollectedRealtime();
+};
+
+</script>
+
+<input type="text" id="searchBar" placeholder="Search name...">
+
+<div id="adminFloatButton" onclick="toggleAdminBox()">ADMIN</div>
+
+<div id="adminLoginBox">
+<input type="password" id="adminLoginInput" placeholder="Admin Password">
+<button id="adminLoginButton" onclick="adminLogin()">Login</button>
+</div>
+
+<div id="registerForm">
+<input id="name" placeholder="Full Name">
+<input id="age" placeholder="Age">
+<input id="address" placeholder="Address">
+<input id="tithe" placeholder="Tithe Amount">
+<button id="addBtn">Add Person</button>
+</div>
+
+<div id="cardsContainer"></div>
+
+<div id="detailPopup">
+<div id="detailBox">
+<div id="actionMsg"></div>
+</div>
+</div>
+
+<script>
+
+const firebaseConfig = {
+apiKey: "AIzaSyAOlGmQUZ6uh7_HmmgERBfueWwhZP25g5o",
+authDomain: "register-d9ef9.firebaseapp.com",
+databaseURL: "https://register-d9ef9-default-rtdb.firebaseio.com/",
+projectId: "register-d9ef9",
+storageBucket: "register-d9ef9.appspot.com",
+messagingSenderId: "710136418226",
+appId: "1:710136418226:web:19b5ba39d279be23ad5eab",
+measurementId: "G-H9SRM7Z4E9"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let ADMIN_PASSWORD = "1234";  
+let adminAccess = false;
+let people = [];
+
+const nameInput = document.getElementById("name");
+const ageInput = document.getElementById("age");
+const addressInput = document.getElementById("address");
+const titheInput = document.getElementById("tithe");
+const addBtn = document.getElementById("addBtn");
+const actionMsg = document.getElementById("actionMsg");
+
+function toggleDark(){ document.body.classList.toggle("dark"); }
+
+function toggleAdminBox(){
+let box = document.getElementById("adminLoginBox");
+box.style.display = box.style.display === "block" ? "none" : "block";
+}
+
+function adminLogin() {
+let pass = document.getElementById("adminLoginInput").value;
+if(pass===ADMIN_PASSWORD){
+adminAccess=true;
+document.getElementById("registerForm").style.display="block";
+alert("Admin mode activated");
+} else alert("Wrong password!");
+}
+
+function showMessage(msg,color='green'){
+actionMsg.textContent = msg;
+actionMsg.style.background = color;
+actionMsg.style.display = "block";
+setTimeout(()=>{ actionMsg.style.display = "none"; },1500);
+}
+
+db.ref("people").on("value", snapshot=>{
+people=[];
+snapshot.forEach(child=>{
+let val = child.val();
+val.id = child.key;
+if(!val.titheHistory) val.titheHistory=[];
+people.push(val);
+});
+displayCards();
+});
+
+addBtn.addEventListener("click", function(){
+if(!adminAccess){ alert("Admin access required!"); return; }
+
+let name = nameInput.value.trim();
+let age = ageInput.value.trim();
+let address = addressInput.value.trim();
+let tithe = titheInput.value.trim();
+
+if(!name){ alert("Name required"); return; }
+
+let person = {
+name,
+age,
+address,
+createdDate: new Date().toLocaleDateString(),
+titheHistory: tithe ? [{amount: parseFloat(tithe), date:new Date().toLocaleDateString()}] : []
+};
+
+db.ref("people").push(person);
+
+nameInput.value=""; ageInput.value=""; addressInput.value=""; titheInput.value="";
+});
+
+function displayCards(highlightId=null){
+const container = document.getElementById("cardsContainer");
+container.innerHTML="";
+
+people.sort((a,b)=>a.name.localeCompare(b.name));
+
+const search = document.getElementById("searchBar").value.toLowerCase();
+
+let lastLetter = "";
+
+people.filter(p=>p.name.toLowerCase().includes(search)).forEach(p=>{
+
+let firstLetter = p.name.charAt(0).toUpperCase();
+
+if(firstLetter !== lastLetter){
+let label = document.createElement("div");
+label.className="alphaHeader";
+label.textContent = firstLetter;
+container.appendChild(label);
+lastLetter = firstLetter;
+}
+
+let card = document.createElement("div");
+card.className = "personCard";
+if(p.id===highlightId) card.classList.add("flash");
+
+const initials = p.name.split(" ").map(n=>n[0]).join("").toUpperCase();
+
+card.innerHTML=`
+<div class="personLogo">${initials}</div>
+<div>
+<div class="idBadge">ID: ${p.id}</div>
+<div class="title1">${p.name}</div>
+<div class="ageBadge">Age: ${p.age}</div>
+<div class="dateBadge">Date: ${p.createdDate}</div>
+</div>
+`;
+
+card.onclick=()=>showDetail(p.id);
+container.appendChild(card);
+});
+}
+
+function showDetail(id){
+const person = people.find(p=>p.id===id);
+if(!person) return;
+const box = document.getElementById("detailBox");
+
+const initials = person.name.split(" ").map(n=>n[0]).join("").toUpperCase();
+
+box.innerHTML=`
+<div id="actionMsg"></div>
+<div class="personLogo" style="width:100px;height:100px;margin:auto;font-size:40px;">${initials}</div>
+<div class="totalDisplay">Total Tithe: ${person.titheHistory.reduce((s,t)=>s+t.amount,0)}</div>
+<div class="title1">${person.name}</div>
+<p><b>ID:</b> ${person.id}</p>
+<p><b>Age:</b> ${person.age}</p>
+<p><b>Address:</b> ${person.address}</p>
+<p><b>Register Date:</b> ${person.createdDate}</p>
+<h3>Tithe History</h3>
+<div id="titheHistory"></div>
+`;
+
+const historyDiv = document.getElementById("titheHistory");
+person.titheHistory.forEach((t,index)=>{
+const row = document.createElement("div");
+row.className = "recordItem";
+row.innerHTML=`
+<span>Amount: ${t.amount}<br>Date: ${t.date}</span>
+${adminAccess?'<button style="background:red;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">Delete</button>':''}
+`;
+if(adminAccess){
+const btn = row.querySelector("button");
+btn.onclick=(e)=>{
+e.stopPropagation();
+const arr = [...person.titheHistory];
+arr.splice(index,1);
+db.ref("people/"+id+"/titheHistory").set(arr).then(()=>{
+showMessage("Funds deleted successfully!","red");
+});
+}
+}
+historyDiv.appendChild(row);
+});
+
+if(adminAccess){
+const addInput = document.createElement("input");
+addInput.id="newAmount";
+addInput.placeholder="Add amount";
+addInput.style.width="100%";
+addInput.style.padding="10px";
+
+const addBtn2 = document.createElement("button");
+addBtn2.className="adminBtnBlue";
+addBtn2.textContent="Add Amount";
+addBtn2.onclick = ()=>{
+const val = parseFloat(addInput.value.trim());
+if(!val) return;
+const arr = [...person.titheHistory];
+arr.push({amount: val, date:new Date().toLocaleDateString()});
+db.ref("people/"+id+"/titheHistory").set(arr).then(()=>{
+showMessage("Funds successfully added!");
+addInput.value="";
+});
+};
+box.appendChild(addInput);
+box.appendChild(addBtn2);
+
+const editBtn = document.createElement("button");
+editBtn.className="adminBtnBlue";
+editBtn.textContent="Edit Person Data";
+editBtn.onclick = ()=> editPerson(id);
+box.appendChild(editBtn);
+
+const delBtn = document.createElement("button");
+delBtn.className="adminBtnRed";
+delBtn.textContent="Delete Person";
+delBtn.onclick = ()=> deletePerson(id);
+box.appendChild(delBtn);
+}
+
+const pdfBtn = document.createElement("button");
+pdfBtn.className="adminBtnGreen";
+pdfBtn.textContent="Download PDF";
+pdfBtn.onclick = () => downloadPDFStyled(person, initials);
+box.appendChild(pdfBtn);
+
+const closeBtn = document.createElement("button");
+closeBtn.className="adminBtnBlack";
+closeBtn.textContent="Close";
+closeBtn.onclick=closePopup;
+box.appendChild(closeBtn);
+
+document.getElementById("detailPopup").style.display="flex";
+}
+
+function downloadPDFStyled(person, initials){
+const { jsPDF } = window.jspdf;
+const doc = new jsPDF();
+
+doc.setTextColor(150,150,150);
+doc.setFontSize(50);
+doc.text("tithe", 105, 140, {align:"center", angle:45, opacity:0.2});
+
+doc.setFillColor(0,0,0);
+doc.circle(30,30,20,'F');
+doc.setFontSize(20);
+doc.setTextColor(255,255,255);
+doc.text(initials, 30, 37, {align:'center'});
+
+doc.setFontSize(22);
+doc.setTextColor(0,0,0);
+doc.text(person.name, 60, 25);
+
+const total = person.titheHistory.reduce((s,t)=>s+t.amount,0);
+
+doc.setFillColor(0,0,255);
+doc.rect(60,35,60,10,'F');
+doc.setTextColor(255,255,255);
+doc.text(`Total: ${total}`, 65,43);
+
+doc.setFontSize(14);
+doc.setTextColor(0,0,0);
+doc.text(`ID: ${person.id}`, 20,60);
+doc.text(`Age: ${person.age}`, 20,68);
+doc.text(`Address: ${person.address}`, 20,76);
+doc.text(`Register Date: ${person.createdDate}`, 20,84);
+
+doc.text("Tithe History:", 20, 95);
+
+person.titheHistory.forEach((t,index)=>{
+doc.text(`${index+1}. Amount: ${t.amount} | Date: ${t.date}`, 25, 105 + index*8);
+});
+
+doc.save(`${person.name}.pdf`);
+}
+
+function closePopup(){ document.getElementById("detailPopup").style.display="none"; }
+
+function editPerson(id){
+const ref = db.ref("people/"+id);
+ref.once("value").then(snap=>{
+let p=snap.val();
+const newName = prompt("Edit Name:", p.name);
+const newAge = prompt("Edit Age:", p.age);
+const newAddress = prompt("Edit Address:", p.address);
+if(newName!==null) p.name = newName;
+if(newAge!==null) p.age = newAge;
+if(newAddress!==null) p.address = newAddress;
+ref.set(p);
+});
+}
+
+function deletePerson(id){
+if(confirm("Delete this person?")){
+db.ref("people/"+id).remove();
+closePopup();
+}
+}
+
+document.getElementById("searchBar").addEventListener("input", displayCards);
+
+</script>
+
+<style>
+#siteBackground { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-size: cover; background-position: center; background-repeat: no-repeat; opacity: 0.8; transition: background-image 0.5s ease; }
+</style>
+
+<div id="siteBackground"></div>
+
+<script>
+const backgroundImageUrl = 'https://ik.imagekit.io/s95tumxuk/Out/Christ2.jpg';
+const bgDiv = document.getElementById('siteBackground');
+bgDiv.style.backgroundImage = `url('${backgroundImageUrl}')`;
+</script>
+<!-- ===== MENU BUTTON ===== -->
+<div id="mobileMenuBtn" class="menu-btn">&#9776;</div>
+
+<!-- ===== SMALL PANEL ===== -->
+<div id="navPanel" class="nav-panel">
+    <button onclick="navigateTo('graph.html')">Graph</button>
+    <button onclick="navigateTo('list.html')">List</button>
+</div>
+
+<script>
+    const menuBtn = document.getElementById("mobileMenuBtn");
+    const navPanel = document.getElementById("navPanel");
+
+    menuBtn.addEventListener("click", () => {
+        navPanel.classList.toggle("show");
+    });
+
+    function navigateTo(page) {
+        window.location.href = page;
+    }
+
+    // close when clicking outside
+    document.addEventListener("click", (e) => {
+        if (!navPanel.contains(e.target) && !menuBtn.contains(e.target)) {
+            navPanel.classList.remove("show");
+        }
+    });
+</script>
+
+<style>
+
+/* ===== MENU BUTTON ===== */
+#mobileMenuBtn {
+    position: fixed;            /* it stays at top */
+    top: 12px;
+    left: 12px;
+    font-size: 32px;
+    cursor: pointer;
+    z-index: 3000;
+    color: white;
+    user-select: none;
+    padding: 3px 5px;
+    border-radius: 3px;
+    transition: opacity .25s;
+}
+
+#mobileMenuBtn:hover {
+    opacity: .6;
+}
+
+/* ===== SMALL PANEL ===== */
+.nav-panel {
+    position: fixed;
+    top: 55px;
+    left: 12px;
+    background: #222;
+    width: 160px;
+    border-radius: 8px;
+    padding: 8px 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 2999;
+
+    /* hidden state */
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-10px);
+    transition: 
+        opacity .3s ease,
+        transform .3s ease;
+}
+
+/* ===== visible animation ===== */
+.nav-panel.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.nav-panel button {
+    border: none;
+    background: none;
+    color: white;
+    padding: 14px 18px;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background .2s;
+}
+
+.nav-panel button:hover {
+    background: #444;
+    border-radius: 6px;
+}
+</style>
+</body>
+</html>

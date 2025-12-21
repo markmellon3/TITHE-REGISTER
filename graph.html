@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tithe Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+    margin:0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1f1f2e;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+h2, h3 {
+    margin-bottom: 10px;
+    color: #f0f0f0;
+}
+.chart-card, .table-card {
+    background: #2a2a3d;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    width: 95%;
+    max-width: 900px;
+    margin-bottom: 30px;
+}
+canvas {
+    width: 100%;
+    height: 400px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+table th, table td {
+    padding: 12px 15px;
+    text-align: left;
+}
+table th {
+    background: #3c3c55;
+    font-weight: 600;
+    border-bottom: 2px solid #555;
+}
+table td {
+    background: #333355;
+    border-bottom: 1px solid #444;
+}
+table tr:hover td {
+    background: #444466;
+}
+@media(max-width:600px){
+    table th, table td { font-size: 14px; padding: 8px;}
+}
+</style>
+</head>
+
+<body>
+
+<h2>Tithe Dashboard</h2>
+
+<div class="chart-card">
+    <h3>Daily Tithe Collected</h3>
+    <canvas id="dailyChart"></canvas>
+</div>
+
+<div class="chart-card">
+    <h3>Weekly Tithe Collected</h3>
+    <canvas id="weeklyChart"></canvas>
+</div>
+
+<div class="chart-card">
+    <h3>Monthly Tithe Collected</h3>
+    <canvas id="monthlyChart"></canvas>
+</div>
+
+<div class="chart-card">
+    <h3>Yearly Tithe Collected</h3>
+    <canvas id="yearlyChart"></canvas>
+</div>
+
+<div class="table-card">
+    <h3>People Tithe History</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Amount (UGX)</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="peopleTable"></tbody>
+    </table>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyAOlGmQUZ6uh7_HmmgERBfueWwhZP25g5o",
+    authDomain: "register-d9ef9.firebaseapp.com",
+    databaseURL: "https://register-d9ef9-default-rtdb.firebaseio.com/",
+    projectId: "register-d9ef9",
+    storageBucket: "register-d9ef9.appspot.com",
+    messagingSenderId: "710136418226",
+    appId: "1:710136418226:web:19b5ba39d279be23ad5eab",
+    measurementId: "G-H9SRM7Z4E9"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const peopleTable = document.getElementById("peopleTable");
+
+// ===== Create Bar Chart =====
+function createBarChart(ctx, label){
+    return new Chart(ctx, {
+        type: 'bar',
+        data: { labels: [], datasets:[{ label: label, data: [], backgroundColor: "rgba(75,192,192,0.7)", borderRadius: 6 }] },
+        options:{
+            responsive:true,
+            plugins:{ legend:{ labels:{ color:"#fff" }}, tooltip:{ backgroundColor:"#333355", titleColor:"#fff", bodyColor:"#fff"} },
+            scales:{
+                x:{ ticks:{ color:"#fff" }, grid:{ color:"rgba(255,255,255,0.1)" } },
+                y:{ min: 1000, ticks:{ color:"#fff" }, grid:{ color:"rgba(255,255,255,0.1)" } }
+            }
+        }
+    });
+}
+
+const dailyChart = createBarChart(document.getElementById("dailyChart").getContext("2d"), "Daily Tithe (UGX)");
+const weeklyChart = createBarChart(document.getElementById("weeklyChart").getContext("2d"), "Weekly Tithe (UGX)");
+const monthlyChart = createBarChart(document.getElementById("monthlyChart").getContext("2d"), "Monthly Tithe (UGX)");
+const yearlyChart = createBarChart(document.getElementById("yearlyChart").getContext("2d"), "Yearly Tithe (UGX)");
+
+// ===== Fetch Data & Update Charts =====
+onValue(ref(db, "people"), snapshot => {
+    let dailyMap = {}, weeklyMap = {}, monthlyMap = {}, yearlyMap = {};
+    let peopleArray = [];
+
+    snapshot.forEach(personSnap => {
+        const person = personSnap.val();
+        if(!person.titheHistory) return;
+
+        Object.values(person.titheHistory).forEach(entry => {
+            const dateStr = entry.date;
+            const amt = Number(entry.amount);
+            const name = person.name;
+
+            // Collect people data
+            peopleArray.push({ name, amt, dateStr });
+
+            const date = new Date(dateStr);
+            if(isNaN(date)) return;
+
+            // Daily
+            if(!dailyMap[dateStr]) dailyMap[dateStr] = 0;
+            dailyMap[dateStr] += amt;
+
+            // Weekly
+            const weekNo = `${date.getFullYear()}-W${Math.ceil((date.getTime() - new Date(date.getFullYear(),0,1).getTime())/ (7*24*60*60*1000))}`;
+            if(!weeklyMap[weekNo]) weeklyMap[weekNo] = 0;
+            weeklyMap[weekNo] += amt;
+
+            // Monthly
+            const monthNo = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`;
+            if(!monthlyMap[monthNo]) monthlyMap[monthNo] = 0;
+            monthlyMap[monthNo] += amt;
+
+            // Yearly
+            const yearNo = `${date.getFullYear()}`;
+            if(!yearlyMap[yearNo]) yearlyMap[yearNo] = 0;
+            yearlyMap[yearNo] += amt;
+        });
+    });
+
+    // ===== Sort People Table Alphabetically =====
+    peopleArray.sort((a,b)=>a.name.localeCompare(b.name));
+    peopleTable.innerHTML = "";
+    peopleArray.forEach(p=>{
+        peopleTable.innerHTML += `
+            <tr>
+                <td>${p.name}</td>
+                <td>${p.amt.toLocaleString()}</td>
+                <td>${p.dateStr}</td>
+            </tr>`;
+    });
+
+    // ===== Update Charts =====
+    function updateChart(chart, map){
+        const labels = Object.keys(map).sort((a,b)=>new Date(a)-new Date(b));
+        const data = labels.map(l=>map[l]);
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = data;
+        chart.update();
+    }
+
+    updateChart(dailyChart, dailyMap);
+    updateChart(weeklyChart, weeklyMap);
+    updateChart(monthlyChart, monthlyMap);
+    updateChart(yearlyChart, yearlyMap);
+});
+</script>
+
+</body>
+</html>

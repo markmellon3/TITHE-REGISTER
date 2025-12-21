@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Website Login</title>
+<style>
+/* Body & background */
+body, html {
+    margin:0;
+    padding:0;
+    height:100%;
+    font-family: Arial, sans-serif;
+    background: url('https://ik.imagekit.io/s95tumxuk/Out/Christ2.jpg') no-repeat center center/cover;
+    overflow-x:hidden;
+    animation: fadeInPage 1s ease;
+}
+
+/* Page fade-in animation */
+@keyframes fadeInPage {
+    0% {opacity:0;}
+    100% {opacity:1;}
+}
+
+/* Header fixed on top */
+#pageHeading {
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    text-align:center;
+    padding:20px 0;
+    font-size:36px;
+    font-weight:bold;
+    color:#fff;
+    text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+    background: rgba(0,0,0,0.3);
+    z-index:1000;
+}
+
+/* Animated panels container */
+#panelsContainer {
+    margin-top:120px; /* Leave space for header */
+    display:flex;
+    justify-content:center;
+    gap:20px;
+    flex-wrap:wrap;
+    padding:20px;
+}
+
+/* Individual animated panel */
+.panel {
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    width:250px;
+    min-height:180px;
+    border-radius:16px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.2);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:14px;
+    color:#fff;
+    font-weight:bold;
+    opacity:0;
+    transform: translateY(50px);
+    animation: slideUp 1s forwards;
+    text-align:center;
+    padding:15px;
+    line-height:1.4;
+    overflow-y:auto;
+    word-wrap: break-word;
+}
+
+/* Delay for each panel */
+.panel:nth-child(1) { animation-delay:0.3s; }
+.panel:nth-child(2) { animation-delay:0.6s; }
+.panel:nth-child(3) { animation-delay:0.9s; }
+
+/* Slide up animation */
+@keyframes slideUp {
+    0% {opacity:0; transform: translateY(50px);}
+    100% {opacity:1; transform: translateY(0);}
+}
+
+/* Login button */
+#openLoginBtn {
+    padding:15px 30px;
+    font-size:18px;
+    border:none;
+    border-radius:8px;
+    background:#43a047;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+    transition:0.3s;
+    display:block;
+    margin:20px auto;
+}
+#openLoginBtn:hover { background:#388e3c; }
+
+/* Login overlay panel (small centered panel) */
+#loginPage {
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background: rgba(0,0,0,0.4); /* Semi-transparent background */
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:9999;
+    display:none; /* Initially hidden */
+}
+
+/* Login box (compact) */
+#loginBox {
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    padding:30px 25px;
+    border-radius:16px;
+    width:90%;
+    max-width:360px;
+    text-align:center;
+    box-shadow:0 8px 30px rgba(0,0,0,0.3);
+    border:1px solid rgba(255,255,255,0.3);
+}
+
+#loginBox h2 {
+    margin-bottom:20px;
+    font-size:22px;
+    letter-spacing:1px;
+    color:#333;
+}
+
+#loginBox input {
+    width:90%;
+    padding:12px;
+    font-size:16px;
+    border-radius:8px;
+    border:1px solid rgba(0,0,0,0.2);
+    margin-bottom:15px;
+    background: rgba(255,255,255,0.6);
+    color:#000;
+}
+
+#loginBox button {
+    width:100%;
+    padding:12px;
+    font-size:16px;
+    border-radius:8px;
+    border:none;
+    background:#43a047;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+#loginBox button:hover { background:#388e3c; }
+
+#loginError {
+    color:#e53935;
+    margin-top:10px;
+    display:none;
+    font-weight:bold;
+}
+
+/* Mobile */
+@media(max-width:480px){
+    #pageHeading { font-size:28px; padding:15px 0; }
+    #panelsContainer { flex-direction:column; align-items:center; gap:15px; }
+    .panel { width:90%; min-height:150px; font-size:13px; padding:10px; }
+    #openLoginBtn { font-size:16px; padding:12px 20px; }
+    #loginBox h2 { font-size:20px; }
+    #loginBox input, #loginBox button { font-size:15px; padding:10px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Heading -->
+<div id="pageHeading">Tithe Documents</div>
+
+<!-- Animated Panels -->
+<div id="panelsContainer">
+    <div class="panel">A tithe of everything from the land, whether grain from the soil or fruit from the trees, belongs to the Lord. LEVITICUS 27:30</div>
+    
+    <div class="panel">Bring the whole tithe into the storehouse, that there may be food in my house. Test me in this, says the Lord. MALACHI 3:10</div>
+</div>
+
+<!-- Login Button -->
+<button id="openLoginBtn">Login</button>
+
+<!-- Login Overlay -->
+<div id="loginPage">
+    <div id="loginBox">
+        <h2>Enter Password to Access</h2>
+        <input type="password" id="sitePassword" placeholder="Password">
+        <button id="loginBtn">Login</button>
+        <div id="loginError">Wrong password!</div>
+    </div>
+</div>
+
+<script>
+const ADMIN_PASSWORD = '1234';
+const loginPage = document.getElementById('loginPage');
+const loginBox = document.getElementById('loginBox');
+const openLoginBtn = document.getElementById('openLoginBtn');
+const loginBtn = document.getElementById('loginBtn');
+const sitePassword = document.getElementById('sitePassword');
+const loginError = document.getElementById('loginError');
+const LOGIN_KEY = 'siteUnlocked';
+
+// Show login panel when login button clicked
+openLoginBtn.onclick = () => loginPage.style.display = 'flex';
+
+// Hide login panel when clicking outside the login box
+loginPage.addEventListener('click', function(e){
+    if(!loginBox.contains(e.target)){
+        loginPage.style.display = 'none';
+    }
+});
+
+// Function to unlock site
+function unlockSite(){
+    sessionStorage.setItem(LOGIN_KEY, 'true');
+    window.location.href = 'home.html'; // Redirect to homepage
+}
+
+// Check if already logged in
+if(sessionStorage.getItem(LOGIN_KEY) === 'true'){
+    unlockSite();
+}
+
+// Login button inside panel
+loginBtn.onclick = function(e){
+    e.stopPropagation(); // prevent closing panel
+    if(sitePassword.value === ADMIN_PASSWORD){
+        unlockSite();
+    } else {
+        loginError.style.display = 'block';
+        sitePassword.value = '';
+        sitePassword.focus();
+    }
+};
+
+// Enter key login
+sitePassword.addEventListener('keypress', function(e){
+    if(e.key === 'Enter') loginBtn.click();
+});
+</script>
+<!-- Security & Footer Section -->
+<div style="
+    width: 100%;
+    background: rgba(255,255,255,0.15); /* Glass effect */
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    font-family: Arial, sans-serif;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+">
+    <!-- Security Info -->
+    <div style="padding: 20px 0; text-align:center;">
+        <p style="margin:0; font-size:16px; font-weight:bold;">Your information is protected and secure</p>
+        <div style="margin-top:10px; display:flex; justify-content:center; flex-wrap:wrap; gap:20px;">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Norton_logo.svg" alt="Norton Secured" style="height:40px; filter: brightness(1.2);">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/8/8e/McAfee_logo.svg" alt="McAfee Secure" style="height:40px; filter: brightness(1.2);">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/SSL_Logo.png" alt="SSL Secured" style="height:40px; filter: brightness(1.2);">
+        </div>
+        <p style="margin-top:10px; font-size:14px;">We use industry-standard encryption and security protocols to keep your data safe.</p>
+    </div>
+
+    <!-- Footer Year -->
+    <div style="padding:10px 0; text-align:center; font-size:14px; border-top:1px solid rgba(255,255,255,0.3);">
+        &copy; <span id="currentYear"></span> Your Company Name. All rights reserved.
+    </div>
+</div>
+
+<script>
+// Automatically set current year
+document.getElementById('currentYear').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
