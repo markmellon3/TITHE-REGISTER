@@ -4,13 +4,15 @@
 <meta charset="UTF-8">
 <title>People List</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Include jsPDF directly -->
+
+<!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
 
-// ===== Firebase Config =====
+/* ================= FIREBASE CONFIG ================= */
 const firebaseConfig = {
     apiKey: "AIzaSyAOlGmQUZ6uh7_HmmgERBfueWwhZP25g5o",
     authDomain: "register-d9ef9.firebaseapp.com",
@@ -22,25 +24,37 @@ const firebaseConfig = {
     measurementId: "G-H9SRM7Z4E9"
 };
 
+/* ================= INIT ================= */
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const peopleTable = document.getElementById("peopleTable");
+const totalPeopleEl = document.getElementById("totalPeople");
 
-// ===== Fetch Data from Firebase =====
 let peopleArray = [];
+
+/* ================= FETCH PEOPLE ================= */
 onValue(ref(db, "people"), snapshot => {
     peopleArray = [];
+    peopleTable.innerHTML = "";
+
     snapshot.forEach(personSnap => {
         const person = personSnap.val();
-        if(!person.name || !person.age || !person.address) return;
-        peopleArray.push({ name: person.name, age: person.age, address: person.address });
+        if (!person.name || !person.age || !person.address) return;
+
+        peopleArray.push({
+            name: person.name,
+            address: person.address,
+            age: person.age
+        });
     });
 
-    // Sort alphabetically
-    peopleArray.sort((a,b) => a.name.localeCompare(b.name));
+    // Sort A–Z
+    peopleArray.sort((a, b) => a.name.localeCompare(b.name));
+
+    // Update total
+    totalPeopleEl.innerText = "Total People: " + peopleArray.length;
 
     // Populate table
-    peopleTable.innerHTML = "";
     peopleArray.forEach(p => {
         peopleTable.innerHTML += `
             <tr>
@@ -52,45 +66,57 @@ onValue(ref(db, "people"), snapshot => {
     });
 });
 
-// ===== Export PDF with password check =====
+/* ================= DOWNLOAD PDF ================= */
 window.downloadPDF = () => {
     const password = prompt("Enter password to download PDF:");
-    if(password !== "1234"){
-        alert("Incorrect password! Access denied.");
+    if (password !== "1234") {
+        alert("Incorrect password!");
         return;
     }
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    doc.setFontSize(14);
-    doc.text("People List", 14, 20);
 
-    let startY = 30;
-    const rowHeight = 10;
+    let y = 20;
 
-    // Header
+    // Title
+    doc.setFontSize(16);
+    doc.text("People List", 14, y);
+
+    y += 10;
+    doc.setFontSize(12);
+    doc.text(`Total People: ${peopleArray.length}`, 14, y);
+
+    y += 10;
+
+    // Table header
     doc.setFont(undefined, "bold");
-    doc.text("Name", 14, startY);
-    doc.text("Address", 70, startY);
-    doc.text("Age", 160, startY);
+    doc.text("Name", 14, y);
+    doc.text("Address", 80, y);
+    doc.text("Age", 170, y);
     doc.setFont(undefined, "normal");
 
+    y += 8;
+
     // Rows
-    peopleArray.forEach((p, i) => {
-        const y = startY + rowHeight * (i + 1);
+    peopleArray.forEach(p => {
+        if (y > 280) {
+            doc.addPage();
+            y = 20;
+        }
         doc.text(p.name, 14, y);
-        doc.text(p.address, 70, y);
-        doc.text(String(p.age), 160, y);
+        doc.text(p.address, 80, y);
+        doc.text(String(p.age), 170, y);
+        y += 8;
     });
 
-    // Download PDF
     doc.save("people_list.pdf");
 };
 </script>
 
 <style>
 body {
-    margin:0;
+    margin: 0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: #1f1f2e;
     color: #fff;
@@ -101,7 +127,11 @@ body {
 }
 
 h2 {
-    color: #f0f0f0;
+    margin-bottom: 5px;
+}
+
+#totalPeople {
+    color: #ccc;
     margin-bottom: 20px;
 }
 
@@ -112,61 +142,65 @@ h2 {
     box-shadow: 0 8px 20px rgba(0,0,0,0.3);
     width: 95%;
     max-width: 800px;
-    margin-bottom: 20px;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 10px;
 }
 
-table th, table td {
-    padding: 12px 15px;
+th, td {
+    padding: 12px;
     text-align: left;
 }
 
-table th {
+th {
     background: #3c3c55;
-    font-weight: 600;
-    border-bottom: 2px solid #555;
 }
 
-table td {
+td {
     background: #333355;
     border-bottom: 1px solid #444;
 }
 
-table tr:hover td {
+tr:hover td {
     background: #444466;
 }
 
 button {
-    background-color: #4caf50;
-    color: #fff;
+    background: #4caf50;
+    color: white;
     border: none;
-    padding: 10px 20px;
+    padding: 10px 22px;
     border-radius: 8px;
     font-size: 16px;
     cursor: pointer;
-    margin-bottom: 20px;
-    transition: 0.3s;
+    margin-bottom: 15px;
 }
 
 button:hover {
-    background-color: #45a049;
+    background: #45a049;
 }
 
-@media(max-width:600px){
-    table th, table td { font-size: 14px; padding: 8px;}
-    button { font-size: 14px; padding: 8px 16px;}
+@media (max-width: 600px) {
+    th, td {
+        font-size: 14px;
+        padding: 8px;
+    }
+    button {
+        font-size: 14px;
+    }
 }
 </style>
 </head>
+
 <body>
 
 <h2>People List</h2>
+<p id="totalPeople">Total People: 0</p>
+
 <button onclick="downloadPDF()">Download PDF</button>
+
 <div class="table-card">
     <table>
         <thead>
