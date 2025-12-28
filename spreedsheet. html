@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>People List</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- SheetJS (Excel) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+
+/* ================= FIREBASE CONFIG ================= */
+const firebaseConfig = {
+    apiKey: "AIzaSyAOlGmQUZ6uh7_HmmgERBfueWwhZP25g5o",
+    authDomain: "register-d9ef9.firebaseapp.com",
+    databaseURL: "https://register-d9ef9-default-rtdb.firebaseio.com/",
+    projectId: "register-d9ef9",
+    storageBucket: "register-d9ef9.appspot.com",
+    messagingSenderId: "710136418226",
+    appId: "1:710136418226:web:19b5ba39d279be23ad5eab"
+};
+
+/* ================= INIT ================= */
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const peopleTable = document.getElementById("peopleTable");
+const totalPeopleEl = document.getElementById("totalPeople");
+const totalTitheEl = document.getElementById("totalTithe");
+
+let peopleArray = [];
+let totalTitheAmount = 0;
+
+/* ================= FETCH PEOPLE ================= */
+onValue(ref(db, "people"), snapshot => {
+    peopleArray = [];
+    peopleTable.innerHTML = "";
+    totalTitheAmount = 0;
+
+    snapshot.forEach(personSnap => {
+        const person = personSnap.val();
+        if (!person.name || !person.age || !person.address) return;
+
+        let titheTotal = 0;
+        let titheList = [];
+
+        if (person.titheHistory) {
+            Object.values(person.titheHistory).forEach(t => {
+                const amount = Number(t.amount || 0);
+                titheTotal += amount;
+                titheList.push({
+                    date: t.date || "Unknown",
+                    amount
+                });
+            });
+        }
+
+        totalTitheAmount += titheTotal;
+
+        peopleArray.push({
+            name: person.name,
+            address: person.address,
+            age: person.age,
+            titheTotal,
+            titheList
+        });
+    });
+
+    peopleArray.sort((a, b) => a.name.localeCompare(b.name));
+
+    totalPeopleEl.innerText = "Total People: " + peopleArray.length;
+    totalTitheEl.innerText = "Total Tithe Amount: " + totalTitheAmount.toLocaleString();
+
+    renderTable();
+});
+
+/* ================= RENDER TABLE ================= */
+function renderTable() {
+    peopleTable.innerHTML = "";
+
+    peopleArray.forEach((p, index) => {
+        peopleTable.innerHTML += `
+            <tr>
+                <td>${p.name}</td>
+                <td>${p.address}</td>
+                <td>${p.age}</td>
+                <td>${p.titheTotal.toLocaleString()}</td>
+                <td>
+                    <button class="small-btn" onclick="toggleHistory(${index})">
+                        View History
+                    </button>
+                </td>
+            </tr>
+            <tr id="history-${index}" class="history-row">
+                <td colspan="5">
+                    ${p.titheList.length === 0 ? 
+                        "<em>No tithe records</em>" :
+                        `<table class="inner-table">
+                            <tr>
+                                <th>Date</th>
+                                <th>Amount</th>
+                            </tr>
+                            ${p.titheList.map(t => `
+                                <tr>
+                                    <td>${t.date}</td>
+                                    <td>${t.amount.toLocaleString()}</td>
+                                </tr>
+                            `).join("")}
+                        </table>`
+                    }
+                </td>
+            </tr>
+        `;
+    });
+}
+
+/* ================= TOGGLE HISTORY ================= */
+window.toggleHistory = index => {
+    const row = document.getElementById("history-" + index);
+    row.style.display = row.style.display === "table-row" ? "none" : "table-row";
+};
+
+/* ================= DOWNLOAD EXCEL ================= */
+window.downloadExcel = () => {
+    const password = prompt("Enter password to download Excel:");
+    if (password !== "1234") return alert("Incorrect password!");
+
+    const data = [["Name", "Address", "Age", "Date", "Amount"]];
+
+    peopleArray.forEach(p => {
+        if (p.titheList.length === 0) {
+            data.push([p.name, p.address, p.age, "-", 0]);
+        } else {
+            p.titheList.forEach(t => {
+                data.push([p.name, p.address, p.age, t.date, t.amount]);
+            });
+        }
+    });
+
+    data.push([]);
+    data.push(["TOTAL PEOPLE", peopleArray.length]);
+    data.push(["TOTAL TITHE", totalTitheAmount]);
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Tithes");
+
+    XLSX.writeFile(wb, "people_tithe_history.xlsx");
+};
+</script>
+
+<style>
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: #1f1f2e;
+    color: #fff;
+    padding: 20px;
+}
+
+.stats { color: #ccc; }
+
+.table-card {
+    background: #2a2a3d;
+    padding: 20px;
+    border-radius: 12px;
+    max-width: 1000px;
+    margin: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 10px;
+}
+
+th {
+    background: #3c3c55;
+}
+
+td {
+    background: #333355;
+}
+
+.small-btn {
+    padding: 6px 12px;
+    border: none;
+    background: #2196f3;
+    color: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.small-btn:hover {
+    background: #1e88e5;
+}
+
+.history-row {
+    display: none;
+}
+
+.inner-table {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.inner-table th {
+    background: #444466;
+}
+
+.inner-table td {
+    background: #2f2f4f;
+}
+</style>
+</head>
+
+<body>
+
+<h2>People & Tithe Records</h2>
+<p id="totalPeople" class="stats">Total People: 0</p>
+<p id="totalTithe" class="stats">Total Tithe Amount: 0</p>
+
+<button onclick="downloadExcel()">Download Excel</button>
+
+<div class="table-card">
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Address</th>
+            <th>Age</th>
+            <th>Total Tithe</th>
+            <th>History</th>
+        </tr>
+    </thead>
+    <tbody id="peopleTable"></tbody>
+</table>
+</div>
+
+</body>
+</html>
