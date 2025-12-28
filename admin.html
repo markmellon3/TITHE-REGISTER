@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+import { getDatabase, ref, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+
+/* ================= PASSWORD PROTECTION ================= */
+const password = prompt("Enter admin password:");
+if(password !== "123#"){
+  alert("Incorrect password! Access denied.");
+  document.body.innerHTML="<h2 style='text-align:center;margin-top:50px;color:red'>Access Denied</h2>";
+  throw new Error("Access Denied");
+}
+
+/* ================= FIREBASE CONFIG ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyAOlGmQUZ6uh7_HmmgERBfueWwhZP25g5o",
+  authDomain: "register-d9ef9.firebaseapp.com",
+  databaseURL: "https://register-d9ef9-default-rtdb.firebaseio.com/",
+  projectId: "register-d9ef9",
+  storageBucket: "register-d9ef9.appspot.com",
+  messagingSenderId: "710136418226",
+  appId: "1:710136418226:web:19b5ba39d279be23ad5eab"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+/* ================= GLOBAL VARIABLES ================= */
+let peopleList = [];
+let totalTithe = 0;
+let monthlyTotals = {};
+let yearlyTotals = {};
+let chart;
+
+/* ================= LOAD PEOPLE & TITHE ================= */
+onValue(ref(db,"people"), snapshot=>{
+  peopleList=[];
+  totalTithe=0;
+  monthlyTotals={};
+  yearlyTotals={};
+  peopleTable.innerHTML="";
+  titheSection.innerHTML="";
+
+  snapshot.forEach(snap=>{
+    peopleList.push({id:snap.key, ...snap.val()});
+  });
+
+  // Alphabetical sort
+  peopleList.sort((a,b)=>a.name.localeCompare(b.name));
+
+  peopleList.forEach(p=>{
+    // People Table
+    peopleTable.innerHTML += `
+      <tr>
+        <td><input value="${p.name}" onchange="editPerson('${p.id}','name',this.value)"></td>
+        <td><input value="${p.address}" onchange="editPerson('${p.id}','address',this.value)"></td>
+        <td><input value="${p.age}" onchange="editPerson('${p.id}','age',this.value)"></td>
+        <td><button class="delete" onclick="deletePerson('${p.id}')">❌</button></td>
+      </tr>
+    `;
+
+    // Tithe Section per person
+    let historyHTML = "";
+    if(p.titheHistory){
+      Object.entries(p.titheHistory).forEach(([tid,t])=>{
+        const amt=Number(t.amount);
+        totalTithe+=amt;
+
+        const d=new Date(t.date);
+        const m=d.toLocaleString("default",{month:"short"});
+        const y=d.getFullYear();
+        monthlyTotals[m]=(monthlyTotals[m]||0)+amt;
+        yearlyTotals[y]=(yearlyTotals[y]||0)+amt;
+
+        historyHTML += `
+          <div class="tithe-row">
+            <input value="${amt}" onchange="editTithe('${p.id}','${tid}',this.value)">
+            <span>${t.date}</span>
+            <button class="delete" onclick="deleteTithe('${p.id}','${tid}')">❌</button>
+          </div>
+        `;
+      });
+    }
+
+    titheSection.innerHTML += `
+      <div class="person-card">
+        <h4>${p.name}</h4>
+        <div class="tithe-add">
+          <input id="t-${p.id}" type="number" placeholder="Add tithe">
+          <button onclick="addTithe('${p.id}')">Add</button>
+        </div>
+        ${historyHTML || "<em>No tithe history</em>"}
+      </div>
+    `;
+  });
+
+  totalPeople.innerText="Total People: "+peopleList.length;
+  totalAmount.innerText="Total Tithe: UGX "+totalTithe.toLocaleString();
+  monthlyAmount.innerText="Monthly Total: UGX "+Object.values(monthlyTotals).reduce((a,b)=>a+b,0).toLocaleString();
+  yearlyAmount.innerText="Yearly Total: UGX "+Object.values(yearlyTotals).reduce((a,b)=>a+b,0).toLocaleString();
+
+  drawChart();
+});
+
+/* ================= CRUD FUNCTIONS ================= */
+window.editPerson=(id,field,val)=>update(ref(db,"people/"+id),{[field]:val});
+window.deletePerson=id=>{if(confirm("Delete person?")) remove(ref(db,"people/"+id));};
+
+window.addTithe=(id)=>{
+  const val=document.getElementById("t-"+id).value;
+  if(!val) return;
+  push(ref(db,`people/${id}/titheHistory`),{amount:val,date:new Date().toLocaleDateString()});
+  document.getElementById("t-"+id).value="";
+};
+window.editTithe=(pid,tid,val)=>update(ref(db,`people/${pid}/titheHistory/${tid}`),{amount:val});
+window.deleteTithe=(pid,tid)=>remove(ref(db,`people/${pid}/titheHistory/${tid}`));
+
+/* ================= CHART ================= */
+function drawChart(){
+  if(chart) chart.destroy();
+  chart=new Chart(titheChart,{
+    type:"line",
+    data:{
+      labels:Object.keys(monthlyTotals),
+      datasets:[{
+        label:"Monthly Tithe",
+        data:Object.values(monthlyTotals),
+        borderColor:'#4caf50',
+        backgroundColor:'rgba(76,175,80,0.2)',
+        borderWidth:2
+      }]
+    },
+    options:{responsive:true, maintainAspectRatio:false}
+  });
+}
+
+/* ================= PDF ================= */
+window.downloadPDF=()=>{
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  let y=20;
+  doc.text("People & Tithe Report",14,y);y+=10;
+  peopleList.forEach(p=>{
+    doc.text(`${p.name} | ${p.address} | ${p.age}`,14,y);y+=8;
+  });
+  y+=5;
+  doc.text(`Total People: ${peopleList.length}`,14,y);y+=8;
+  doc.text(`Total Tithe: UGX ${totalTithe.toLocaleString()}`,14,y);
+  doc.save("report.pdf");
+};
+</script>
+
+<style>
+body{margin:0;font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0f1220,#1b1f3b);color:#fff}
+.container{max-width:1200px;margin:auto;padding:16px}
+.header{text-align:center;margin-bottom:20px}
+.header h2{margin:0;font-size:26px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+.stat{background:#1b1f3b;padding:16px;border-radius:14px;box-shadow:0 10px 25px rgba(0,0,0,.35)}
+.stat span{font-size:13px;color:#b8b9d4}
+.stat strong{display:block;margin-top:6px;font-size:20px}
+.card{background:#1d2150;padding:16px;border-radius:14px;box-shadow:0 10px 25px rgba(0,0,0,.35);margin-bottom:18px}
+input{width:90%;padding:10px;border:none;border-radius:10px;background:#121530;color:#fff;font-size:14px;margin-bottom:6px}
+input::placeholder{color:#777}
+button{padding:10px;border:none;border-radius:10px;background:#4caf50;color:#fff;font-weight:600;cursor:pointer;transition:.25s}
+button:hover{opacity:.9}
+button.delete{background:#e53935}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:600px}
+th,td{padding:12px;text-align:left}
+th{background:#151840;color:#dcdcff;font-size:14px}
+td{background:#1d2150}
+td input{background:#14173a}
+.person-card{background:#1d2150;padding:14px;border-radius:12px;margin-bottom:12px}
+.person-card h4{margin:0 0 8px}
+.tithe-add{display:flex;gap:8px;margin-bottom:8px}
+.tithe-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.tithe-row span{font-size:12px;color:#b8b9d4}
+.chart-wrap{position:relative;width:100%;height:300px}
+canvas{width:100% !important;height:100% !important}
+@media(max-width:600px){.header h2{font-size:22px}.stat strong{font-size:18px}table{min-width:520px}}
+</style>
+
+<body>
+<div class="container">
+  <div class="header"><h2>Admin Dashboard</h2><p style="color:#b8b9d4;margin-top:6px">People & Tithe Management</p></div>
+  <div class="stats">
+    <div class="stat"><span>Total People</span><strong id="totalPeople">0</strong></div>
+    <div class="stat"><span>Total Tithe</span><strong id="totalAmount">UGX 0</strong></div>
+    <div class="stat"><span>Monthly Total</span><strong id="monthlyAmount">UGX 0</strong></div>
+    <div class="stat"><span>Yearly Total</span><strong id="yearlyAmount">UGX 0</strong></div>
+  </div>
+
+  <!-- ADD NEW PERSON PANEL REMOVED -->
+
+  <div class="card">
+    <h3>People List</h3>
+    <button style="margin-bottom:10px" onclick="downloadPDF()">Download PDF</button>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Address</th><th>Age</th><th>Action</th></tr></thead>
+        <tbody id="peopleTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Tithe History</h3>
+    <div id="titheSection"></div>
+  </div>
+
+  <div class="card">
+    <h3>Monthly Tithe Chart</h3>
+    <div class="chart-wrap">
+      <canvas id="titheChart"></canvas>
+    </div>
+  </div>
+</div>
+</body>
+</html>
