@@ -253,38 +253,6 @@ sitePassword.addEventListener('keypress', function(e){
     if(e.key === 'Enter') loginBtn.click();
 });
 </script>
-<!-- Security & Footer Section -->
-<div style="
-    width: 100%;
-    background: rgba(255,255,255,0.15); /* Glass effect */
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-top: 1px solid rgba(255,255,255,0.3);
-    color: #fff;
-    font-family: Arial, sans-serif;
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
-">
-    <!-- Security Info -->
-    <div style="padding: 20px 0; text-align:center;">
-        <p style="margin:0; font-size:16px; font-weight:bold;">Your information is protected and secure</p>
-        <div style="margin-top:10px; display:flex; justify-content:center; flex-wrap:wrap; gap:20px;">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/5/5b/Norton_logo.svg" alt="Norton Secured" style="height:40px; filter: brightness(1.2);">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/8/8e/McAfee_logo.svg" alt="McAfee Secure" style="height:40px; filter: brightness(1.2);">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/SSL_Logo.png" alt="SSL Secured" style="height:40px; filter: brightness(1.2);">
-        </div>
-        <p style="margin-top:10px; font-size:14px;">We use industry-standard encryption and security protocols to keep your data safe.</p>
-    </div>
-
-    <!-- Footer Year -->
-    <div style="padding:10px 0; text-align:center; font-size:14px; border-top:1px solid rgba(255,255,255,0.3);">
-        &copy; <span id="currentYear"></span> Your Company Name. All rights reserved.
-    </div>
-</div>
-
-<script>
-// Automatically set current year
-document.getElementById('currentYear').textContent = new Date().getFullYear();
-</script>
 
 </body>
 </html>
