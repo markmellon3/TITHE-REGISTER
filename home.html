@@ -205,7 +205,7 @@ header { background:black; color:white; padding:18px; font-size:23px; letter-spa
     <h2>Total Collected</h2>
     <p id="dailyTotal">Today: UGX0</p>
     <p id="weeklyTotal">This Week: UGX0</p>
-     <p id="weeklyTotal">This month: UGX0</p>
+     
     <p id="yearlyTotal">This Year: UGX0</p>
 </div>
 
@@ -365,82 +365,84 @@ document.getElementById("calcEquals").onclick=()=>{
     try{calcValue=eval(calcValue).toString(); calcDisplay.value=calcValue;}
     catch{calcDisplay.value="Error"; calcValue="";}
 };
+
 // ===================== TOTAL COLLECTED REAL-TIME =====================
+
 function formatCurrency(amount) {
-    // Format as Ugandan Shillings with commas and no decimals
-    return "UGX " + Math.round(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return "UGX " + Math.round(amount).toLocaleString("en-US");
 }
 
+// Parse DD/MM/YYYY
+function parseTitheDate(dateStr) {
+    if (!dateStr) return null;
+    const parts = dateStr.split("/");
+    if (parts.length !== 3) return null;
+    return new Date(parts[2], parts[1] - 1, parts[0]);
+}
+
+let totalsListenerAttached = false;
+
 function setupTotalCollectedRealtime() {
-    const dailyEl = document.getElementById("dailyTotal");
-    const weeklyEl = document.getElementById("weeklyTotal");
-    const monthlyElId = "monthlyTotal"; // NEW
-    const yearlyEl = document.getElementById("yearlyTotal");
-    const allTimeElId = "allTimeTotal";
+    if (totalsListenerAttached) return;
+    totalsListenerAttached = true;
 
-    // Create MONTHLY element if it doesn't exist
-    let monthlyEl = document.getElementById(monthlyElId);
-    if (!monthlyEl) {
-        monthlyEl = document.createElement("p");
-        monthlyEl.id = monthlyElId;
-        totalPanel.appendChild(monthlyEl);
+    const dailyEl   = document.getElementById("dailyTotal");
+    const weeklyEl  = document.getElementById("weeklyTotal");
+    const yearlyEl  = document.getElementById("yearlyTotal");
+    const totalPanel = document.getElementById("totalPanel");
+
+    function ensureEl(id) {
+        let el = document.getElementById(id);
+        if (!el) {
+            el = document.createElement("p");
+            el.id = id;
+            totalPanel.appendChild(el);
+        }
+        return el;
     }
 
-    // Create ALL-TIME element if it doesn't exist
-    let allTimeEl = document.getElementById(allTimeElId);
-    if (!allTimeEl) {
-        allTimeEl = document.createElement("p");
-        allTimeEl.id = allTimeElId;
-        totalPanel.appendChild(allTimeEl);
-    }
+    const monthlyEl = ensureEl("monthlyTotal");
+    const allTimeEl = ensureEl("allTimeTotal");
 
-    // Listen for all changes in 'people' (real-time)
     db.ref("people").on("value", snapshot => {
         const now = new Date();
+
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfWeek = new Date(startOfToday);
+        startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+
         let daily = 0, weekly = 0, monthly = 0, yearly = 0, allTime = 0;
 
-        snapshot.forEach(personSnapshot => {
-            const personData = personSnapshot.val();
-            if (!personData.titheHistory) return;
+        snapshot.forEach(personSnap => {
+            const person = personSnap.val();
+            if (!person.titheHistory) return;
 
-            Object.values(personData.titheHistory).forEach(tithe => {
-                const amount = parseFloat(tithe.amount || 0);
-                const date = tithe.date ? new Date(tithe.date) : now;
+            Object.values(person.titheHistory).forEach(tithe => {
+                const amount = Number(tithe.amount) || 0;
+                const date = parseTitheDate(tithe.date);
+                if (!date) return;
 
-                // Daily total
-                if (date.toDateString() === now.toDateString()) daily += amount;
-
-                // Weekly total (Sunday-Saturday)
-                const firstDayOfWeek = new Date(now);
-                firstDayOfWeek.setDate(now.getDate() - now.getDay());
-                if (date >= firstDayOfWeek && date <= now) weekly += amount;
-
-                // Monthly total
-                if (
-                    date.getMonth() === now.getMonth() &&
-                    date.getFullYear() === now.getFullYear()
-                ) monthly += amount;
-
-                // Yearly total
-                if (date.getFullYear() === now.getFullYear()) yearly += amount;
-
-                // All-time total
                 allTime += amount;
+                if (date >= startOfToday) daily += amount;
+                if (date >= startOfWeek) weekly += amount;
+                if (date >= startOfMonth) monthly += amount;
+                if (date >= startOfYear) yearly += amount;
             });
         });
 
-        // Update HTML with formatted currency
-        dailyEl.textContent = `Today: ${formatCurrency(daily)}`;
-        weeklyEl.textContent = `This Week: ${formatCurrency(weekly)}`;
+        dailyEl.textContent   = `Today: ${formatCurrency(daily)}`;
+        weeklyEl.textContent  = `This Week: ${formatCurrency(weekly)}`;
         monthlyEl.textContent = `This Month: ${formatCurrency(monthly)}`;
-        yearlyEl.textContent = `This Year: ${formatCurrency(yearly)}`;
+        yearlyEl.textContent  = `This Year: ${formatCurrency(yearly)}`;
         allTimeEl.textContent = `All-Time Total: ${formatCurrency(allTime)}`;
     });
 }
 
-// Initialize real-time totals when the panel opens
+// Open panel
 document.getElementById("totalBtn").onclick = () => {
-    totalPanel.style.display = "block";
+    document.getElementById("totalPanel").style.display = "block";
     setupTotalCollectedRealtime();
 };
 
