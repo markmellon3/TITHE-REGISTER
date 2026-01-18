@@ -110,94 +110,134 @@ const firebaseConfig = {
     projectId: "register-d9ef9",
     storageBucket: "register-d9ef9.appspot.com",
     messagingSenderId: "710136418226",
-    appId: "1:710136418226:web:19b5ba39d279be23ad5eab",
-    measurementId: "G-H9SRM7Z4E9"
+    appId: "1:710136418226:web:19b5ba39d279be23ad5eab"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const peopleTable = document.getElementById("peopleTable");
 
-// ===== Create Bar Chart =====
-function createBarChart(ctx, label){
+/* ===== DATE PARSER (DD/MM/YYYY) ===== */
+function parseDateDMY(dateStr) {
+    if (!dateStr) return null;
+    const parts = dateStr.split("/");
+    if (parts.length !== 3) return null;
+    return new Date(parts[2], parts[1] - 1, parts[0]);
+}
+
+/* ===== CREATE BAR CHART ===== */
+function createBarChart(ctx, label) {
     return new Chart(ctx, {
         type: 'bar',
-        data: { labels: [], datasets:[{ label: label, data: [], backgroundColor: "rgba(75,192,192,0.7)", borderRadius: 6 }] },
-        options:{
-            responsive:true,
-            plugins:{ legend:{ labels:{ color:"#fff" }}, tooltip:{ backgroundColor:"#333355", titleColor:"#fff", bodyColor:"#fff"} },
-            scales:{
-                x:{ ticks:{ color:"#fff" }, grid:{ color:"rgba(255,255,255,0.1)" } },
-                y:{ min: 1000, ticks:{ color:"#fff" }, grid:{ color:"rgba(255,255,255,0.1)" } }
+        data: {
+            labels: [],
+            datasets: [{
+                label,
+                data: [],
+                backgroundColor: "rgba(75,192,192,0.7)",
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { labels: { color: "#fff" } },
+                tooltip: {
+                    backgroundColor: "#333355",
+                    titleColor: "#fff",
+                    bodyColor: "#fff"
+                }
+            },
+            scales: {
+                x: { ticks: { color: "#fff" } },
+                y: { ticks: { color: "#fff" } }
             }
         }
     });
 }
 
-const dailyChart = createBarChart(document.getElementById("dailyChart").getContext("2d"), "Daily Tithe (UGX)");
-const weeklyChart = createBarChart(document.getElementById("weeklyChart").getContext("2d"), "Weekly Tithe (UGX)");
-const monthlyChart = createBarChart(document.getElementById("monthlyChart").getContext("2d"), "Monthly Tithe (UGX)");
-const yearlyChart = createBarChart(document.getElementById("yearlyChart").getContext("2d"), "Yearly Tithe (UGX)");
+/* ===== INIT CHARTS ===== */
+const dailyChart = createBarChart(
+    document.getElementById("dailyChart").getContext("2d"),
+    "Daily Tithe (UGX)"
+);
 
-// ===== Fetch Data & Update Charts =====
+const weeklyChart = createBarChart(
+    document.getElementById("weeklyChart").getContext("2d"),
+    "Weekly Tithe (UGX)"
+);
+
+const monthlyChart = createBarChart(
+    document.getElementById("monthlyChart").getContext("2d"),
+    "Monthly Tithe (UGX)"
+);
+
+const yearlyChart = createBarChart(
+    document.getElementById("yearlyChart").getContext("2d"),
+    "Yearly Tithe (UGX)"
+);
+
+/* ===== REAL-TIME FIREBASE DATA ===== */
 onValue(ref(db, "people"), snapshot => {
-    let dailyMap = {}, weeklyMap = {}, monthlyMap = {}, yearlyMap = {};
+
+    let dailyMap = {};
+    let weeklyMap = {};
+    let monthlyMap = {};
+    let yearlyMap = {};
     let peopleArray = [];
 
     snapshot.forEach(personSnap => {
         const person = personSnap.val();
-        if(!person.titheHistory) return;
+        if (!person.titheHistory) return;
 
         Object.values(person.titheHistory).forEach(entry => {
-            const dateStr = entry.date;
-            const amt = Number(entry.amount);
-            const name = person.name;
+            const amount = Number(entry.amount) || 0;
+            const date = parseDateDMY(entry.date);
+            if (!date) return;
 
-            // Collect people data
-            peopleArray.push({ name, amt, dateStr });
+            peopleArray.push({
+                name: person.name,
+                amt: amount,
+                dateStr: entry.date
+            });
 
-            const date = new Date(dateStr);
-            if(isNaN(date)) return;
+            /* DAILY */
+            dailyMap[entry.date] = (dailyMap[entry.date] || 0) + amount;
 
-            // Daily
-            if(!dailyMap[dateStr]) dailyMap[dateStr] = 0;
-            dailyMap[dateStr] += amt;
+            /* WEEKLY (Sunday start) */
+            const weekStart = new Date(date);
+            weekStart.setDate(date.getDate() - date.getDay());
+            const weekKey = weekStart.toISOString().slice(0, 10);
+            weeklyMap[weekKey] = (weeklyMap[weekKey] || 0) + amount;
 
-            // Weekly
-            const weekNo = `${date.getFullYear()}-W${Math.ceil((date.getTime() - new Date(date.getFullYear(),0,1).getTime())/ (7*24*60*60*1000))}`;
-            if(!weeklyMap[weekNo]) weeklyMap[weekNo] = 0;
-            weeklyMap[weekNo] += amt;
+            /* MONTHLY */
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+            monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + amount;
 
-            // Monthly
-            const monthNo = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`;
-            if(!monthlyMap[monthNo]) monthlyMap[monthNo] = 0;
-            monthlyMap[monthNo] += amt;
-
-            // Yearly
-            const yearNo = `${date.getFullYear()}`;
-            if(!yearlyMap[yearNo]) yearlyMap[yearNo] = 0;
-            yearlyMap[yearNo] += amt;
+            /* YEARLY */
+            const yearKey = date.getFullYear();
+            yearlyMap[yearKey] = (yearlyMap[yearKey] || 0) + amount;
         });
     });
 
-    // ===== Sort People Table Alphabetically =====
-    peopleArray.sort((a,b)=>a.name.localeCompare(b.name));
+    /* ===== PEOPLE TABLE ===== */
+    peopleArray.sort((a, b) => a.name.localeCompare(b.name));
     peopleTable.innerHTML = "";
-    peopleArray.forEach(p=>{
+    peopleArray.forEach(p => {
         peopleTable.innerHTML += `
             <tr>
                 <td>${p.name}</td>
                 <td>${p.amt.toLocaleString()}</td>
                 <td>${p.dateStr}</td>
-            </tr>`;
+            </tr>
+        `;
     });
 
-    // ===== Update Charts =====
-    function updateChart(chart, map){
-        const labels = Object.keys(map).sort((a,b)=>new Date(a)-new Date(b));
-        const data = labels.map(l=>map[l]);
+    /* ===== UPDATE CHARTS ===== */
+    function updateChart(chart, map) {
+        const labels = Object.keys(map).sort((a, b) => new Date(a) - new Date(b));
         chart.data.labels = labels;
-        chart.data.datasets[0].data = data;
+        chart.data.datasets[0].data = labels.map(l => map[l]);
         chart.update();
     }
 
